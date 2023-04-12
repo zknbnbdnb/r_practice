@@ -1,0 +1,192 @@
+---
+title: "Example"
+author: "zk"
+date: '2022-06-02'
+output: html_document
+runtime: shiny
+---
+```{r}
+print("利用自带的数据集进行一些研究")
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r}
+numericInput("rows", "How many cars?", 5)
+
+renderTable({
+  head(cars, input$rows)
+})
+```
+
+```{r}
+library(ggplot2)
+library(fpc)
+df<-iris[,c(1:4)]
+set.seed(252964)
+(kmeans <- kmeans(na.omit(df), 3))
+plotcluster(na.omit(df), kmeans$cluster)
+```
+
+
+
+```{r} 
+#加载数据
+iris2 <- iris[,-5]
+species_labels <- iris[,5]
+library(colorspace) # 颜色包
+species_col <- rev(rainbow_hcl(3))[as.numeric(species_labels)]
+#绘制 SPLOM:
+pairs(iris2, col = species_col,
+      lower.panel = NULL,
+       cex.labels=2, pch=19, cex = 1.2)
+ 
+# 添加图例
+par(xpd = TRUE)
+legend(x = 0.05, y = 0.4, cex = 2,
+   legend = as.character(levels(species_labels)),
+    fill = unique(species_col))
+par(xpd = NA)
+```
+
+```{r global, include=FALSE}
+# 在全局块中加载数据，以便仪表盘的所有用户可以共享
+library(datasets)
+data(faithful)
+```
+
+
+```{r}
+selectInput(
+  "n_breaks", label = "条形数：",
+  choices = c(10, 20, 35, 50), selected = 20
+)
+
+sliderInput(
+  "bw_adjust", label = "带宽调整：",
+  min = 0.2, max = 2, value = 1, step = 0.2
+)
+```
+
+
+
+```{r}
+renderPlot({
+  erpt = faithful$eruptions
+  hist(
+    erpt, probability = TRUE, breaks = as.integer(input$n_breaks),
+    xlab = "Duration (minutes)", main = "Geyser Eruption Duration",
+    col = 'gray', border = 'white'
+  )
+  
+  dens = density(erpt, adjust = input$bw_adjust)
+  lines(dens, col = "blue", lwd = 2)
+})
+```
+
+
+
+
+
+```{r}
+par(las = 1, mar = c(4.5, 3, 3, 2) + 0.1, cex = .8)
+MASS::parcoord(iris2, col = species_col, var.label = TRUE, lwd = 2)
+ 
+# 添加标题
+title("Parallel coordinates plot of the Iris data")
+# 添加图例
+par(xpd = TRUE)
+legend(x = 1.75, y = -.25, cex = 1,
+   legend = as.character(levels(species_labels)),
+    fill = unique(species_col), horiz = TRUE)
+```
+
+```{r} 
+sliderInput("bins", "Number of bins:", 30, min = 1, max = 50)
+
+renderPlot({
+  x    = faithful[, 2]  # Old Faithful Geyser data
+  bins = seq(min(x), max(x), length.out = input$bins + 1)
+
+  # 用指定的格子大小绘制可交互的直方图
+  hist(x, breaks = bins, col = 'darkgray', border = 'white')
+})
+```
+
+
+```{r} 
+shinyApp(
+
+  ui = fluidPage(
+    selectInput("region", "Region:",
+                choices = colnames(WorldPhones)),
+    plotOutput("phonePlot")
+  ),
+
+  server = function(input, output) {
+    output$phonePlot = renderPlot({
+      barplot(WorldPhones[,input$region]*1000,
+              ylab = "Number of Telephones", xlab = "Year")
+    })
+  },
+
+  options = list(height = 500)
+)
+```
+
+```{r}
+library(tidyverse)
+library(cluster)
+library(dendextend)
+data("mtcars")
+view(mtcars)
+dim(mtcars)
+df<-na.omit(mtcars)#删除有缺失的记录
+
+df<-round(scale(df),3)#对数据进行标准化处理
+
+#层次聚类：通过hclust()函数实现，不用提前给出聚类数量
+dist_df<-dist(df,method = "euclidean")#计算距离,默认欧氏距离
+dist_df
+hier_clust<-hclust(dist_df,method = "complete")#进行聚类
+plot(hier_clust,cex = 1,hang = -1)#绘图分类
+rect.hclust(hier_clust,k = 4,border = 5:8)#绘出图1，再使用该函数，分成4类，添加颜色方框
+rect.hclust(hier_clust,k = 6,border = 5:10)#绘出图2，再使用该函数，分成6类，添加颜色方框
+#分成4类，并得出分类结果，观测值分别属于同一类
+
+cutree(hier_clust,k = 4)
+#层次聚类：该算法不用计算距离，默认欧氏距离
+
+hier_clust<-agnes(df,method = "complete",metric = "euclidean")
+pltree(hier_clust,cex = 1,hang = -1)
+rect.hclust(hier_clust,k = 4,border = 2:5)
+```
+
+```{r}
+#kmeans聚类,选择簇中心表示聚类数
+kmeans.result<-kmeans(df,4)
+kmeans.result
+table(kmeans.result$cluster)#查看聚类结果
+#k-medoids聚类,选择靠近簇中心的对象表示聚类簇
+library(fpc)
+pamk.result<-pamk(df)
+pamk.result$nc#输出聚类数
+pamk.result$pamobject$clustering#每个观测值属于哪个类别
+plot(pamk.result$pamobject)#绘图显示聚类结果
+```
+
+```{r}
+#基于密度的聚类
+#eps:可达距离,用于定义邻域的大小
+#MinPts:最小数目的对象点
+library(fpc)
+ds<-dbscan(df,eps = 0.45,MinPts = 2)
+ds$cluster
+plotcluster(df,ds$cluster)#通过图形展示聚类结果
+
+```
+
